@@ -7,3 +7,5 @@ python-dotenv
 matplolib
 transformers4rec[nvtabular]
 nvtabular
+tensorboard
+joblib

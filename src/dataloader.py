@@ -89,7 +89,19 @@ class XES3G5MDataModule(pl.LightningDataModule):
         """
         [load_dataset(hf_dataset_id) for hf_dataset_id in self.hf_dataset_ids.values()]
 
-    def setup(self, stage: str | None = None) -> None:
+    def sliding_window(self, df: pd.DataFrame, overlap: int) -> pd.DataFrame:
+        """Make the sequences overlap by `overlap` amount. 
+
+        Args:
+            df (pd.DataFrame): The dataframe containing the sequences, requires the columns
+                "questions", "concepts", "responses", "timestamps", "selectmasks", and "is_repeat".
+            overlap (int): _description_
+
+        Returns:
+            pd.DataFrame: _description_
+        """
+
+    def setup(self, stage: str | None = None, training_folds: list[int] = None) -> None:
         """
         Loads the dataset.
         """
@@ -97,11 +109,17 @@ class XES3G5MDataModule(pl.LightningDataModule):
             key: load_dataset(value) for key, value in self.hf_dataset_ids.items()
         }
         self.datasets = datasets
-
+        if training_folds is None:
+            training_folds = [0, 1, 2, 3]
+        elif self.val_fold in training_folds:
+            raise ValueError(
+                f"Validation fold {self.val_fold} cannot be in training folds {training_folds}"
+            )
         seq_df_train_val = datasets["sequence"]["train"].to_pandas()
+        train_indices = seq_df_train_val["fold"].isin(training_folds)
         val_indices = seq_df_train_val["fold"] == self.val_fold
+        self.seq_df_train = seq_df_train_val[train_indices]
         self.seq_df_val = seq_df_train_val[val_indices]
-        self.seq_df_train = seq_df_train_val[~val_indices]
         self.seq_df_test = datasets["sequence"]["test"].to_pandas()
 
         question_content_df = datasets["content_metadata"]["question"].to_pandas()
