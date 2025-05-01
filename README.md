@@ -6,6 +6,11 @@ Train a KT (Knowledge Tracing) model to predict (the probability of) whether the
 
 ## Methodology
 
+SAKT was chosen because:
+
+1. it has a relatively simple architecture, see *Figure 1* below, hence is suitable as a benchmark model
+1. uses self-attention, which has shown to be more performant compared to RNNs or LSTMs
+
 ![sakt_architecture.svg](images/sakt_architecture.svg)
 
 *Figure 1: The SAKT model architecture*
@@ -57,6 +62,8 @@ The accuracy on the test set was 0.7180.
 The dataset used is the [XES3G5M dataset](https://github.com/ai4ed/XES3G5M). They were downloaded from:
 * [XES3G5M_interaction_sequences](https://huggingface.co/datasets/Atomi/XES3G5M_interaction_sequences)
 * [XES3G5M_content_metadata](https://huggingface.co/datasets/Atomi/XES3G5M_content_metadata)
+
+See [notebooks/eda.ipynb](notebooks/eda.ipynb) for details.
 
 Below are some high-level information about the dataset:
 
