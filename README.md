@@ -2,7 +2,7 @@
 
 ## Objectives
 
-Train a KT (Knowledge Tracing) model to predict (the probability of) whether the student will answer a question correctly, given their historical interactions. The model chosen for this project was the SAKT (**S**elf-**A**ttentive model for **K**nowledge **T**racing).
+Train a KT (Knowledge Tracing) model to predict (the probability of) whether the student will answer a question correctly, given their historical interactions. The model chosen for this project was the [SAKT](https://arxiv.org/abs/1907.06837) (**S**elf-**A**ttentive model for **K**nowledge **T**racing).
 
 ## Methodology
 
