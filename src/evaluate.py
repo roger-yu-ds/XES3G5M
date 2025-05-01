@@ -191,7 +191,7 @@ def train_sakt_with_early_stopping(
         if no_improvement >= patience:
             logger.info(f"Early stopping at epoch {epoch}. Best epoch: {best_epoch}")
             break
-    # TODO: Write the best validation loss and epoch for learning curve
+
     writer.add_scalar("Best Loss/Train", corresponding_train_loss, train_size)
     writer.add_scalar("Best Loss/Val", best_val_loss, train_size)
     writer.add_scalar("Best Accuracy/Train", corresponding_train_acc, train_size)
