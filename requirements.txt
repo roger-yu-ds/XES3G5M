@@ -4,8 +4,6 @@ lightning
 datasets
 transformers
 python-dotenv
-matplolib
-transformers4rec[nvtabular]
-nvtabular
+matplotlib
 tensorboard
 joblib
