@@ -171,9 +171,9 @@ def train_sakt_with_early_stopping(
                 logger.warning("AUC calculation failed due to no positive samples.")
                 val_auc = float("nan")
                 # TensorBoard logging
-                writer.add_scalar("Loss/Val", epoch_val_loss, epoch)
-                writer.add_scalar("Accuracy/Val", val_acc, epoch)
-                writer.add_scalar("AUC/Val", val_auc, epoch)
+            writer.add_scalar("Loss/Val", epoch_val_loss, epoch)
+            writer.add_scalar("Accuracy/Val", val_acc, epoch)
+            writer.add_scalar("AUC/Val", val_auc, epoch)
 
 
         logger.info(
@@ -217,3 +217,50 @@ def train_sakt_with_early_stopping(
                 logger.warning("No best model state found. Training may not have improved.")
     writer.close()
     return model, epoch_loss, epoch, probs
+
+
+def evaluate_test(
+    model: nn.Module,
+    test_loader: DataLoader,
+    device: str,
+):
+    """Evaluate the model on the test set.
+
+    Args:
+        model (nn.Module): The model to evaluate.
+        test_loader (DataLoader): The test data loader.
+        device (str): The device to use for evaluation, e.g., "cuda" or "cpu".
+    """
+    model.eval()
+    all_test_probs = []
+    all_test_labels = []
+
+    with torch.no_grad():
+        for batch in tqdm(test_loader, desc="Evaluating", file=sys.stdout):
+            questions = batch["questions"].to(device)
+            selectmasks = batch["selectmasks"].to(device)
+            responses = batch["responses"].to(device)
+
+            logits = model(
+                questions,
+                responses,
+                selectmasks,
+            )
+
+            probs = torch.sigmoid(logits)
+            mask = selectmasks != -1
+            all_test_probs.append(probs[mask].detach().cpu())
+            all_test_labels.append(responses[mask].detach().cpu())
+
+    test_probs = torch.cat(all_test_probs).numpy()
+    test_labels = torch.cat(all_test_labels).numpy()
+    test_preds = (test_probs >= 0.5).astype(int)
+    test_acc = accuracy_score(test_labels, test_preds)
+    try:
+        test_auc = roc_auc_score(test_labels, test_probs)
+    except ValueError:
+        logger.warning("AUC calculation failed due to no positive samples.")
+        test_auc = float("nan")
+
+    logger.info(f"Test Accuracy: {test_acc:.4f}, Test AUC: {test_auc:.4f}")
+    return test_acc, test_auc
