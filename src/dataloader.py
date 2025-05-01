@@ -5,6 +5,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from datasets import load_dataset
+from logging_config import get_logger
+
+logger = get_logger(name=__name__)
 
 
 class XES3G5MDataModuleConfig:
@@ -16,7 +19,7 @@ class XES3G5MDataModuleConfig:
     }
     max_seq_length: int = 200
     padding_value: int = -1
-    batch_size: int = 64
+    batch_size: int = 128
     val_fold: int = 4
 
 
@@ -89,21 +92,113 @@ class XES3G5MDataModule(pl.LightningDataModule):
         """
         [load_dataset(hf_dataset_id) for hf_dataset_id in self.hf_dataset_ids.values()]
 
-    def sliding_window(self, df: pd.DataFrame, overlap: int) -> pd.DataFrame:
-        """Make the sequences overlap by `overlap` amount. 
+    def _create_overlapping_rows_in_group(self, group: pd.DataFrame, overlap_size: int, max_seq_length: int = 200) -> pd.DataFrame:
+        """
+        Create overlapping rows for a given group of sequences.
+        
+        Args:
+            group (pd.DataFrame): DataFrame containing sequences for a single user.
+            overlap_size (int): Number of elements to overlap between consecutive sequences.
+            max_seq_length (int): Maximum length of sequences (default: 200).
+            
+        Returns:
+            pd.DataFrame: DataFrame with original and overlapping sequences.
+        """
+        # Sort the group by sequence index
+        # group = group.sort_values('sequence_idx').reset_index(drop=True)
+        seq_cols = ['questions', 'responses', 'selectmasks', 'concepts', "timestamps", "is_repeat"]
+        # Initialize a list to store all rows (original + new overlapping ones)
+        all_rows = []
+        
+        # Add original rows
+        for _, row in group.iterrows():
+            all_rows.append(row.to_dict())
+        
+        # Skip users with only one row (no need for overlap)
+        if len(group) <= 1:
+            return pd.DataFrame(all_rows)
+        
+        # For each pair of consecutive rows, create an overlapping row
+        for i in range(len(group) - 1):
+            current_row = group.iloc[i]
+            next_row = group.iloc[i + 1]
+            
+            # Create new overlapping row
+            overlap_row = {}
+            
+            # For sequence columns, take end of current and beginning of next
+            for col in seq_cols:
+                if col in current_row and col in next_row:
+                    # Take last overlap_size elements from current row
+                    first_part = current_row[col][-overlap_size:]
+                    
+                    # Take first (max_seq_length - overlap_size) elements from next row
+                    second_part = next_row[col][:(max_seq_length - overlap_size)]
+                    
+                    # Combine them
+                    overlap_row[col] = np.array(first_part.tolist() + second_part.tolist())
+                    
+                    # Pad if necessary (should rarely be needed if both sequences are max_seq_length)
+                    if len(overlap_row[col]) < max_seq_length:
+                        pad_value = -1 if col == 'selectmasks' else 0
+                        padding = [pad_value] * (max_seq_length - len(overlap_row[col]))
+                        overlap_row[col] = overlap_row[col] + padding
+            
+            # Copy other non-sequence columns from the first row
+            for col in current_row.index:
+                if col not in overlap_row and col not in seq_cols:
+                    overlap_row[col] = current_row[col]
+            
+            # Add uid
+            overlap_row['uid'] = current_row['uid']
+            
+            # Add the overlap row to the list
+            all_rows.append(overlap_row)
+        
+        # Create new dataframe with all rows
+        result_df = pd.DataFrame(all_rows)
+        
+        return result_df
+
+    def create_overlapping_rows(
+        self, df: pd.DataFrame, overlap_size: int, max_seq_length: int = 200
+    ) -> pd.DataFrame:
+        """Create overlapping rows for `df`. If rows with duplicate `uid`s would be extended; extra rows are created
+        with overlapping sequences. This is done by taking the last `overlap_size` elements from the current row and the first `max_seq_length - overlap_size`
+        elements from the next row.
 
         Args:
-            df (pd.DataFrame): The dataframe containing the sequences, requires the columns
-                "questions", "concepts", "responses", "timestamps", "selectmasks", and "is_repeat".
-            overlap (int): _description_
+            df (pd.DataFrame): The DataFrame containing `uid` and the sequence columns.
+            overlap_size (int): Number of elements to overlap between consecutive sequences.
+            max_seq_length (int): Maximum length of sequences (default: 200).
 
         Returns:
-            pd.DataFrame: _description_
+            pd.DataFrame: DataFrame with original and overlapping sequences.
         """
+        result = df.groupby("uid", as_index=False).apply(
+            lambda group: self._create_overlapping_rows_in_group(
+                group=group, overlap_size=overlap_size, max_seq_length=max_seq_length
+            )
+        ).reset_index(drop=True)
+        return result
+        
 
-    def setup(self, stage: str | None = None, training_folds: list[int] = None) -> None:
+    def setup(
+        self,
+        stage: str | None = None,
+        training_folds: list[int] = None,
+        overlap_size: int = None,
+    ) -> None:
         """
-        Loads the dataset.
+        Sets up the dataset for training, validation, and testing.
+
+        Args:
+            stage (str | None, optional): "fit" or "test". Defaults to None.
+            training_folds (list[int], optional): The list of training folds to train the model on. Defaults to None.
+            overlap_size (int, optional): The . Defaults to None.
+
+        Raises:
+            ValueError: _description_
         """
         datasets = {
             key: load_dataset(value) for key, value in self.hf_dataset_ids.items()
@@ -119,6 +214,13 @@ class XES3G5MDataModule(pl.LightningDataModule):
         train_indices = seq_df_train_val["fold"].isin(training_folds)
         val_indices = seq_df_train_val["fold"] == self.val_fold
         self.seq_df_train = seq_df_train_val[train_indices]
+        logger.info("self.seq_df_train.shape[0]: %s", self.seq_df_train.shape[0])
+        if overlap_size:
+            logger.info("Creating overlapping rows with overlap size %d", overlap_size)
+            self.seq_df_train = self.create_overlapping_rows(
+                self.seq_df_train, overlap_size=overlap_size
+            )
+        logger.info("self.seq_df_train.shape[0]: %s", self.seq_df_train.shape[0])
         self.seq_df_val = seq_df_train_val[val_indices]
         self.seq_df_test = datasets["sequence"]["test"].to_pandas()
 
