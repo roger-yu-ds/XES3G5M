@@ -43,7 +43,6 @@ def train_sakt_with_early_stopping(
     patience: int = 3,
     val_loader: DataLoader = None,
     test_loader: DataLoader = None,
-
 ):
     """Train the model with early stopping.
 
@@ -121,7 +120,7 @@ def train_sakt_with_early_stopping(
             train_auc = roc_auc_score(train_labels, train_probs)
         except ValueError:
             train_auc = float("nan")
-        
+
         # TensorBoard logging
         writer.add_scalar("Loss/Train", epoch_loss, epoch)
         writer.add_scalar("Accuracy/Train", train_acc, epoch)
@@ -178,7 +177,6 @@ def train_sakt_with_early_stopping(
             writer.add_scalar("Accuracy/Val", val_acc, epoch)
             writer.add_scalar("AUC/Val", val_auc, epoch)
 
-
         logger.info(
             f"Epoch {epoch + 1}/{epochs}, Train Loss: {epoch_loss:.4f}, Val Loss: {epoch_val_loss:.4f}"
         )
@@ -199,12 +197,16 @@ def train_sakt_with_early_stopping(
                 no_improvement += 1
 
             if no_improvement >= patience:
-                logger.info(f"Early stopping at epoch {epoch}. Best epoch: {best_epoch}")
+                logger.info(
+                    f"Early stopping at epoch {epoch}. Best epoch: {best_epoch}"
+                )
                 break
-    
+
             writer.add_scalar("Best Loss/Train", corresponding_train_loss, train_size)
             writer.add_scalar("Best Loss/Val", best_val_loss, train_size)
-            writer.add_scalar("Best Accuracy/Train", corresponding_train_acc, train_size)
+            writer.add_scalar(
+                "Best Accuracy/Train", corresponding_train_acc, train_size
+            )
             writer.add_scalar("Best Accuracy/Val", val_acc, train_size)
             writer.add_scalar("Best AUC/Train", corresponding_train_auc, train_size)
             writer.add_scalar("Best AUC/Val", val_auc, train_size)
@@ -217,7 +219,9 @@ def train_sakt_with_early_stopping(
                 model.load_state_dict(best_model_state)
                 logger.info(f"Loaded best model state from epoch {best_epoch}")
             else:
-                logger.warning("No best model state found. Training may not have improved.")
+                logger.warning(
+                    "No best model state found. Training may not have improved."
+                )
     writer.close()
     return model, epoch_loss, epoch, probs
 
