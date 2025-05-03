@@ -101,7 +101,7 @@ class SAKT(Module):
         self.register_buffer(
             "attn_mask",
             torch.triu(
-                torch.ones(self.max_seq_len, self.max_seq_len), diagonal=1
+                torch.ones(self.max_seq_len - 1, self.max_seq_len - 1), diagonal=1
             ).bool(),
         )
 
@@ -134,22 +134,25 @@ class SAKT(Module):
         """
         seq_len = question_ids.size(1)
         batch_size = question_ids.size(0)
-        # Embedding lookup, replace with the respective padding indexex.
+        # Embedding lookup, replace with the respective padding indexes.
+        # Ignore the first question because there is no history to attend to.
         question_ids = torch.where(
             condition=selectmasks == -1,
             input=torch.full_like(question_ids, self.question_padding_idx),
             other=question_ids,
         )
-        question_embedding = self.question_embedding(
-            question_ids
-        )  # (batch_size, seq_len, emb_dim)
+        question_embedding = self.question_embedding(question_ids)[
+            :, 1:, :
+        ]  # (batch_size, seq_len - 1, emb_dim)
         interaction_ids = question_ids + self.num_questions * responses
+        # Ignore the last interaction because there is no next question that can attend to the interaction,
+        # the sequence has ended.
         interaction_ids = torch.where(
             condition=selectmasks == -1,
             input=interaction_ids,
             other=torch.full_like(interaction_ids, self.interaction_padding_idx),
         )
-        interaction_embedding = self.interaction_embedding(interaction_ids)
+        interaction_embedding = self.interaction_embedding(interaction_ids)[:, :-1, :]
 
         position_ids = (
             torch.arange(seq_len, device=question_ids.device)
@@ -164,13 +167,15 @@ class SAKT(Module):
             ),
             other=position_ids,
         )
-        position_embedding = self.position_embedding(position_ids)
+        position_embedding = self.position_embedding(position_ids)[:, 1:, :]
 
         # Combine embeddings
         x = interaction_embedding + position_embedding
 
         # Attention layer
-        key_padding_mask = selectmasks == -1
+        # Masking the Keys and Values, which are derived from the interaction embedding, hence 
+        # ignore the last interaction in the sequence.
+        key_padding_mask = (selectmasks == -1)[:, :-1]
         x, _ = self.attention(
             query=question_embedding,
             key=x,
@@ -277,7 +282,7 @@ class SAKTWithAdditivePreEmbeddings(Module):
         self.register_buffer(
             "attn_mask",
             torch.triu(
-                torch.ones(self.max_seq_len, self.max_seq_len), diagonal=1
+                torch.ones(self.max_seq_len, self.max_seq_len), diagonal=0
             ).bool(),
         )
 
@@ -326,7 +331,7 @@ class SAKTWithAdditivePreEmbeddings(Module):
             input=interaction_ids,
             other=torch.full_like(interaction_ids, self.interaction_padding_idx),
         )
-        interaction_embedding = self.interaction_embedding(interaction_ids)
+        interaction_embedding = self.interaction_embedding(interaction_ids)[:, :-1, :]
 
         position_ids = (
             torch.arange(seq_len, device=question_ids.device)
@@ -341,7 +346,7 @@ class SAKTWithAdditivePreEmbeddings(Module):
             ),
             other=position_ids,
         )
-        position_embedding = self.position_embedding(position_ids)
+        position_embedding = self.position_embedding(position_ids)[:, :-1, :]
 
         # Combine embeddings
         x = interaction_embedding + position_embedding
@@ -353,7 +358,7 @@ class SAKTWithAdditivePreEmbeddings(Module):
                 x += pre_embedding
 
         # Attention layer
-        key_padding_mask = selectmasks == -1
+        key_padding_mask = (selectmasks == -1)[:, :-1]
         x, _ = self.attention(
             query=question_embedding,
             key=x,

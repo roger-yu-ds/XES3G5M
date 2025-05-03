@@ -93,7 +93,7 @@ def train_sakt_with_early_stopping(
                 responses,
                 selectmasks,
             )
-            loss = criterion(logits.squeeze(-1), responses.float())
+            loss = criterion(logits.squeeze(-1), responses[:, 1:].float())
             # Mask the loss
             mean_loss, batch_loss, batch_count = mask_loss(loss, selectmasks[:, 1:])
             optimizer.zero_grad()
@@ -106,9 +106,9 @@ def train_sakt_with_early_stopping(
 
             # Calculate accuracy and AUC
             probs = torch.sigmoid(logits)
-            mask = selectmasks != -1
+            mask = (selectmasks != -1)[:, 1:]
             all_train_probs.append(probs[mask].detach().cpu())
-            all_train_labels.append(responses[mask].detach().cpu())
+            all_train_labels.append(responses[:, 1:][mask].detach().cpu())
 
         epoch_loss = running_loss / running_count
 
@@ -149,15 +149,18 @@ def train_sakt_with_early_stopping(
                         responses,
                         selectmasks,
                     )
+                    val_loss = criterion(logits.squeeze(-1), responses[:, 1:].float())
                     _, batch_val_loss, batch_val_count = mask_loss(
+                        val_loss, selectmasks[:, 1:]
+                    )
                     running_val_loss += batch_val_loss.item()
                     running_val_count += batch_val_count.item()
 
                     # Calculate accuracy and AUC
                     val_probs = torch.sigmoid(logits)
-                    mask = selectmasks != -1
+                    mask = (selectmasks != -1)[:, 1:]
                     all_val_probs.append(val_probs[mask].detach().cpu())
-                    all_val_labels.append(responses[mask].detach().cpu())
+                    all_val_labels.append(responses[:, 1:][mask].detach().cpu())
 
             epoch_val_loss = running_val_loss / running_val_count
             # Compute validation accuracy and AUC
@@ -248,9 +251,9 @@ def evaluate_test(
             )
 
             probs = torch.sigmoid(logits)
-            mask = selectmasks != -1
+            mask = (selectmasks != -1)[:, 1:]
             all_test_probs.append(probs[mask].detach().cpu())
-            all_test_labels.append(responses[mask].detach().cpu())
+            all_test_labels.append(responses[:, 1:][mask].detach().cpu())
 
     test_probs = torch.cat(all_test_probs).numpy()
     test_labels = torch.cat(all_test_labels).numpy()
