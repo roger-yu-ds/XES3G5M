@@ -173,7 +173,7 @@ class SAKT(Module):
         x = interaction_embedding + position_embedding
 
         # Attention layer
-        # Masking the Keys and Values, which are derived from the interaction embedding, hence 
+        # Masking the Keys and Values, which are derived from the interaction embedding, hence
         # ignore the last interaction in the sequence.
         key_padding_mask = (selectmasks == -1)[:, :-1]
         x, _ = self.attention(
