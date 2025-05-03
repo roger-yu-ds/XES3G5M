@@ -25,12 +25,12 @@ def mask_loss(
         selectmask (torch.Tensor): The selectmask tensor.
 
     Returns:
-        tuple(torch.Tensor, torch.Tensor): The total masked loss and the count of valid samples.
+        tuple(torch.Tensor, torch.Tensor, torch.Tensor): The mean masked loss, total masked loss and the count of valid samples.
     """
     # Mask the loss
     loss_mask = selectmask != -1
     masked_loss = loss * loss_mask.float()
-    return masked_loss.sum(), loss_mask.sum()
+    return masked_loss.sum() / loss_mask.sum(), masked_loss.sum(), loss_mask.sum()
 
 
 def train_sakt_with_early_stopping(
@@ -95,9 +95,10 @@ def train_sakt_with_early_stopping(
             )
             loss = criterion(logits.squeeze(-1), responses.float())
             # Mask the loss
-            batch_loss, batch_count = mask_loss(loss, selectmasks)
+            mean_loss, batch_loss, batch_count = mask_loss(loss, selectmasks[:, 1:])
             optimizer.zero_grad()
-            batch_loss.backward()
+            mean_loss.backward()
+
             optimizer.step()
 
             running_loss += batch_loss.item()
@@ -148,8 +149,7 @@ def train_sakt_with_early_stopping(
                         responses,
                         selectmasks,
                     )
-                    val_loss = criterion(logits.squeeze(-1), responses.float())
-                    batch_val_loss, batch_val_count = mask_loss(val_loss, selectmasks)
+                    _, batch_val_loss, batch_val_count = mask_loss(
                     running_val_loss += batch_val_loss.item()
                     running_val_count += batch_val_count.item()
 
