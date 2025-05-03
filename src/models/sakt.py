@@ -149,8 +149,8 @@ class SAKT(Module):
         # the sequence has ended.
         interaction_ids = torch.where(
             condition=selectmasks == -1,
-            input=interaction_ids,
-            other=torch.full_like(interaction_ids, self.interaction_padding_idx),
+            input=torch.full_like(interaction_ids, self.interaction_padding_idx),
+            other=interaction_ids,
         )
         interaction_embedding = self.interaction_embedding(interaction_ids)[:, :-1, :]
 
