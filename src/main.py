@@ -1,13 +1,12 @@
 from argparse import ArgumentParser
 from pathlib import Path
 import random
-import pandas as pd
 import numpy as np
 import torch
 import joblib
 from datetime import datetime
 from train import evaluate_test, train_sakt_with_early_stopping
-from models.sakt import SAKT, SAKTWithAdditivePreEmbeddings, SAKTConfig
+from models.sakt import SAKT, SAKTConfig
 from dataloader import XES3G5MDataModule, XES3G5MDataModuleConfig
 from logging_config import get_logger
 
@@ -67,7 +66,10 @@ def parse_args():
 
 
 def get_model(
-    model_name: str, config: SAKTConfig, pre_embeddings: dict[str, torch.Tensor] | None, pretrained_model_dir: str | None = None
+    model_name: str,
+    config: SAKTConfig,
+    pre_embeddings: dict[str, torch.Tensor] | None,
+    pretrained_model_dir: str | None = None,
 ) -> torch.nn.Module:
     """Get the model based on the model name. Or load a pretrained model from the model_dir.
 
@@ -83,25 +85,16 @@ def get_model(
     Returns:
         torch.nn.Module: _description_
     """
-    if model_name == "sakt":
-        model = SAKT(
-            emb_dim=config.emb_dim,
-            max_seq_len=config.max_seq_len,
-            num_questions=config.num_questions,
-            num_heads=config.num_heads,
-            dropout=config.dropout,
-        )
-    elif model_name == "sakt_with_additive_pre_embeddings":
-        model = SAKTWithAdditivePreEmbeddings(
-            emb_dim=config.emb_dim,
-            max_seq_len=config.max_seq_len,
-            num_questions=config.num_questions,
-            num_heads=config.num_heads,
-            pre_embeddings=pre_embeddings,
-            dropout=config.dropout,
-        )
-    else:
-        raise ValueError(f"Unknown model name: {model_name}")
+
+    model = SAKT(
+        emb_dim=config.emb_dim,
+        max_seq_len=config.max_seq_len,
+        num_questions=config.num_questions,
+        num_heads=config.num_heads,
+        dropout=config.dropout,
+        pre_embeddings=pre_embeddings,
+    )
+
     if pretrained_model_dir:
         logger.info("Loading model from %s", pretrained_model_dir)
         model_path = Path(pretrained_model_dir) / "best_model.pth"
@@ -144,6 +137,7 @@ def get_pre_embeddings(
         )
     return pre_embeddings
 
+
 def main(args=None):
     """Main function to train the SAKT model."""
     now_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -182,7 +176,9 @@ def main(args=None):
         )
 
         model.to(device)
-        data_module.setup(stage="test",)
+        data_module.setup(
+            stage="test",
+        )
         test_dataloader = data_module.test_dataloader()
         logger.info("Evaluating test set...")
         evaluate_test(model, test_dataloader, device)
@@ -219,7 +215,6 @@ def main(args=None):
         val_dataloader = data_module.val_dataloader()
         logger.info("Train dataloader and val dataloader created.")
         # Passing the pre-embeddings (if any) to the model
-        
 
         model = get_model(
             model_name=args.model,
@@ -238,6 +233,7 @@ def main(args=None):
             epochs=100,
             learning_rate=0.001,
             patience=10,
+            pre_embedding_names=args.pre_embedding_list,
         )
         logger.info("Training completed.")
         model_path = artifact_dir / f"best_model.pth"

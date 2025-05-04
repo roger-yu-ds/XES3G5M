@@ -43,6 +43,7 @@ def train_sakt_with_early_stopping(
     patience: int = 3,
     val_loader: DataLoader = None,
     test_loader: DataLoader = None,
+    pre_embedding_names: list[str] | None = None,
 ):
     """Train the model with early stopping.
 
@@ -56,6 +57,7 @@ def train_sakt_with_early_stopping(
         patience (int, optional): The number of epochs with no improvement after which training will be stopped. Defaults to 3.
         val_loader (DataLoader, optional): The validation data loader. Defaults to None.
         test_loader (DataLoader, optional): The test data loader. Defaults to None.
+        pre_embedding_names (list[str] | None, optional): The names of the pre-embeddings, either "question" or "concept". Defaults to None.
     """
     train_size = len(train_loader.dataset)
     criterion = nn.BCEWithLogitsLoss(reduction="none")
@@ -91,6 +93,7 @@ def train_sakt_with_early_stopping(
                 questions,
                 responses,
                 selectmasks,
+                pre_embedding_names=pre_embedding_names,
             )
             loss = criterion(logits.squeeze(-1), responses[:, 1:].float())
             # Mask the loss
@@ -147,6 +150,7 @@ def train_sakt_with_early_stopping(
                         questions,
                         responses,
                         selectmasks,
+                        pre_embedding_names=pre_embedding_names,
                     )
                     val_loss = criterion(logits.squeeze(-1), responses[:, 1:].float())
                     _, batch_val_loss, batch_val_count = mask_loss(
@@ -230,6 +234,7 @@ def evaluate_test(
     model: nn.Module,
     test_loader: DataLoader,
     device: str,
+    pre_embedding_names: list[str] | None = None,
 ):
     """Evaluate the model on the test set.
 
@@ -252,6 +257,7 @@ def evaluate_test(
                 questions,
                 responses,
                 selectmasks,
+                pre_embedding_names=pre_embedding_names,
             )
 
             probs = torch.sigmoid(logits)
