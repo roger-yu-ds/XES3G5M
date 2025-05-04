@@ -48,14 +48,20 @@ The best validation result came from the SAKT model with question pre-embeddings
 | Loss Function               | Binary Cross-Entropy With Logits Loss | Objective function for binary prediction      |
 | Early Stopping Metric       | Validation Accuracy  | Metric used to monitor for early stopping           |
 | Early Stopping Patience     | 10                   | Epochs to wait for improvement before stopping      |
-| Epochs Trained              | 35                   | Resulting number of epochs after early stopping     |
+| Epochs Trained              | 1                    | Resulting number of epochs after early stopping     |
 
 *Table 1: Hyperparameters for the model with the best validation accuracy*
 
 
-The model with the highest validation accuracy (0.8054) is the SAKT with pre-embeddings and overlapping sequences narrowly beating the baseline (0.8052).
+The model with the highest validation accuracy is the SAKT overlapping sequences and no position embedding at 0.8453, see *Figure 3* below.
 
-The accuracy on the test set was 0.7180.
+![sakt_best_validation_accuracy.png](images/sakt_best_validation_accuracy.png)
+
+*Figure 3: Validation accuracy across epochs for several models*
+
+The accuracy on the test set was 0.8239 and AUC was 0.8265.
+
+Peak values were achieved very early in the training, suggesting that the model is overparameterised.
 
 ### EDA
 
@@ -91,7 +97,7 @@ All the students in the training data had sequences greater than 200.
 
 ![corr_correct_position.png](images/corr_correct_position.png)
 
-*Figure 3: Proportion of correct answers against the position in the sequence*
+*Figure 4: Proportion of correct answers against the position in the sequence*
 
 This means that the position encoding must be done carefully.
 
@@ -113,45 +119,40 @@ Multiple training sessions were done on different dataset sizes to understand th
 
 ![results_qemb_learning_curve.png](images/results_qemb_learning_curve.png)
 
-*Figure 4: Learning Curve*
+*Figure 5: Learning Curve*
 
 Increasing the training set size could improve the validation metrics.
  
 ### Evaluation
 
-The model with the best validation accuracy achieved a test accuracy of 0.7893.
-
-The large difference could be due to differences in the feature and target distribution differences.
+The model with the best validation accuracy achieved a test accuracy of **0.8239** on the second epoch, see *Table 2* for details.
 
 |            | Accuracy | AUC    | Loss   |
 | ---------- | -------- | ------ | ------ |
-| training   | 0.8062   | 0.7336 | 0.4336 |
-| validation | 0.8054   | 0.7323 | 0.4474 |
-| test       | 0.7893   | 0.7180 |        |
+| training   | 0.8532   | 0.8610 | 0.3393 |
+| validation | 0.8453   | 0.8502 | 0.3548 |
+| test       | 0.8239   | 0.8265 |        |
 
-*Table 2: Final results on the test set
+*Table 2: Metrics (on the second epoch) for the model with the best validation accuracy*
 
 ## Concluding Remarks
 
-Adding new features, such as the question pre-embeddings, and augmenting the training data, didn't seem to have had any meaningful impact on the validation accuracy. There are several potential explanations:
+The peak metrics on the validation curve was achieved very early in training (second epoch), which suggests overfitting. One of the reasons for this could be the large dimensionality (768) of the embeddings; in the original [SAKT](https://arxiv.org/abs/1907.06837) paper, $d={50, 100, 150, 200}$ were tried. The reason for having used 768 was to easily incorporate the pre-embeddings, i.e. simple sum, which doesn't require the introduction of extra parameters. However, perhaps it would be better to reduce the 768-dimension pre-embeddings through a Linear layer instead.
 
-1. The new features are not informative
-1. The model architecture is not using the extra information effectively
-
-Given the higher reported values of other models that use this extra information (e.g. [SAINT](https://arxiv.org/pdf/2106.01342v1)), explanation 2 is the more likely.
+Augmenting the dataset by adding rows with overlapping sequences improved the model, perhaps adding more rows with smaller overlaps could lead to even further improvements.
 
 ### Strengths and Weaknesses
 
-Strengths: SAKT's use of self-attention allows the model to potentially capture more complex and long-range dependencies in student learning sequences compared to traditional RNN approaches.
+**Strengths**: SAKT's use of self-attention allows the model to potentially capture more complex and long-range dependencies in student learning sequences compared to traditional RNN approaches.
 
-Weakness: 
+**Weakness**: 
 
 * The original SAKT relies solely on interaction patterns. It doesn't include auxiliary information such as question and concept pre-embeddings, which are encoded content such as question wording. This exacerbates the cold start problem.
-* Non-overlapping sequence partitions mean that subsequent partitions are treated as having started from scratch (i.e. without any history), however, as *Figure 3* shows, students are more likely to successfully answer later questions.
+* Non-overlapping sequence partitions mean that subsequent partitions are treated as having started from scratch (i.e. without any history), however, as *Figure 4* shows, students are more likely to successfully answer later questions.
 
 ### Opportunities
 
-1. Reduce embedding dimension
+1. Reduce embedding dimension, to reduce overfitting
 1. Try different sequence lengths
 1. Include the knowledge concept pre-embeddings
 1. Furter analyses of prediction results
