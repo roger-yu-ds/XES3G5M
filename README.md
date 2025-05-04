@@ -130,7 +130,7 @@ The model with the best validation accuracy achieved a test accuracy of **0.8239
 | ---------- | -------- | ------ | ------ |
 | training   | 0.8532   | 0.8610 | 0.3393 |
 | validation | 0.8453   | 0.8502 | 0.3548 |
-| test       | 0.8239   | 0.8265 |        |
+| test       | 0.8239   | 0.8265 | 0.4147 |
 
 *Table 2: Metrics (on the second epoch) for the model with the best validation accuracy*
 

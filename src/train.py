@@ -268,7 +268,9 @@ def evaluate_test(
     model.eval()
     all_test_probs = []
     all_test_labels = []
-
+    criterion = nn.BCEWithLogitsLoss(reduction="none")
+    running_loss = 0.0
+    running_count = 0
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Evaluating", file=sys.stdout):
             questions = batch["questions"].to(device)
@@ -281,12 +283,20 @@ def evaluate_test(
                 selectmasks,
                 pre_embedding_names=pre_embedding_names,
             )
-
+            loss = criterion(logits.squeeze(-1), responses[:, 1:].float())
+            # Mask the loss
+            mean_loss, batch_loss, batch_count = mask_loss(
+                loss, selectmasks[:, 1:]
+            )
+            running_loss += batch_loss.item()
+            running_count += batch_count.item()
             probs = torch.sigmoid(logits)
             mask = (selectmasks != -1)[:, 1:]
             all_test_probs.append(probs[mask].detach().cpu())
             all_test_labels.append(responses[:, 1:][mask].detach().cpu())
 
+    epoch_loss = running_loss / running_count
+    logger.info(f"Test Loss: {epoch_loss:.4f}")
     test_probs = torch.cat(all_test_probs).numpy()
     test_labels = torch.cat(all_test_labels).numpy()
     test_preds = (test_probs >= 0.5).astype(int)
@@ -298,4 +308,4 @@ def evaluate_test(
         test_auc = float("nan")
 
     logger.info(f"Test Accuracy: {test_acc:.4f}, Test AUC: {test_auc:.4f}")
-    return test_acc, test_auc
+    return epoch_loss, test_acc, test_auc
