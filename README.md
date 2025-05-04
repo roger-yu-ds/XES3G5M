@@ -103,13 +103,12 @@ This means that the position encoding must be done carefully.
 
 ### Training
 
-There were three training iterations conducted, all using the SAKT architecture:
+There were four training iterations conducted, all using the SAKT architecture:
 
-1. SAKT original; mostly faithful to the model described in the original paper, validation accuracy (0.8052)
-1. SAKT with question pre-embeddings; the above model with the addition of the question pre-embeddings, validation accuracy (0.8054)
-1. SAKT with question pre-embeddings and overlapping sequences, validation accuracy (0.8053)
-
-All models show very similar validation accuracy.
+1. SAKT original; mostly faithful to the model described in the original paper, validation accuracy (0.8422)
+1. SAKT with question pre-embeddings; the above model with the addition of the question pre-embeddings, validation accuracy (0.8430)
+1. SAKT without positional embeddings (0.8451)
+1. SAKT without positional embeddings, but with augmented training data (0.8502)
 
 Training was conducted locally on a Windows machine running WSL Ubuntu with a GPU GTX1080 Ti. Training on 4 folds (and evaluation on one fold) took just under two minutes per epoch.
 
@@ -117,11 +116,11 @@ Training was conducted locally on a Windows machine running WSL Ubuntu with a GP
 
 Multiple training sessions were done on different dataset sizes to understand the learning curve.
 
-![results_qemb_learning_curve.png](images/results_qemb_learning_curve.png)
+![results_learning_curve.png](images/results_learning_curve.png)
 
 *Figure 5: Learning Curve*
 
-Increasing the training set size could improve the validation metrics.
+Increasing the training set size could improve the validation metrics, indicating value in training on more data.
  
 ### Evaluation
 
