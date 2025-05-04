@@ -63,7 +63,11 @@ def train_sakt_with_early_stopping(
     criterion = nn.BCEWithLogitsLoss(reduction="none")
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float("inf")
-    best_epoch = 0
+    best_val_loss_epoch = 0
+    best_val_acc = 0
+    best_val_acc_epoch = 0
+    best_val_auc = 0
+    best_val_auc_epoch = 0
     no_improvement = 0
     best_model_state = None
     # At the epoch with the best validation loss; for learning curve.
@@ -189,25 +193,43 @@ def train_sakt_with_early_stopping(
 
         # Early stopping
         if val_loader:
+            if val_acc > best_val_acc:
+                no_improvement = 0
+                best_val_acc = val_acc
+                best_val_acc_epoch = epoch
+                writer.add_scalar("Best Accuracy/Train", train_acc, 0)
+                writer.add_scalar("Best Accuracy/Val", val_acc, 0)
+                best_model_state = model.state_dict()
+            else:
+                # Optimise for validation accuracy
+                no_improvement += 1
+
+            if val_auc > best_val_auc:
+                best_val_auc = val_auc
+                best_val_auc_epoch = epoch
+                writer.add_scalar("Best AUC/Train", train_acc, 0)
+                writer.add_scalar("Best AUC/Val", val_auc, 0)
+
             if epoch_val_loss < best_val_loss:
                 best_val_loss = epoch_val_loss
-                best_epoch = epoch
+                best_val_loss_epoch = epoch
                 no_improvement = 0
-                best_model_state = model.state_dict()
-                corresponding_train_loss = epoch_loss
-                corresponding_train_acc = train_acc
-                corresponding_train_auc = train_auc
-            else:
-                no_improvement += 1
+
+                writer.add_scalar("Best Loss/Train", train_acc, 0)
+                writer.add_scalar("Best Loss/Val", best_val_loss, 0)
 
             if no_improvement >= patience:
                 logger.info(
-                    f"Early stopping at epoch {epoch}. Best epoch: {best_epoch}"
+                    "Early stopping at epoch %s.\nBest validation accuracy is at current epoch: %s.\nBest loss at epoch %s: %s.\nBest validation AUC is at epoch %s: %s",
+                    epoch,
+                    best_val_acc,
+                    best_val_loss_epoch,
+                    best_val_loss,
+                    best_val_auc_epoch,
+                    best_val_auc,
                 )
                 break
 
-            writer.add_scalar("Best Loss/Train", corresponding_train_loss, train_size)
-            writer.add_scalar("Best Loss/Val", best_val_loss, train_size)
             writer.add_scalar(
                 "Best Accuracy/Train", corresponding_train_acc, train_size
             )
@@ -215,13 +237,13 @@ def train_sakt_with_early_stopping(
             writer.add_scalar("Best AUC/Train", corresponding_train_auc, train_size)
             writer.add_scalar("Best AUC/Val", val_auc, train_size)
             epoch_loss = best_val_loss
-            epoch = best_epoch
+            epoch = best_val_acc_epoch
             probs = val_probs
 
             # Load the best model state
             if best_model_state is not None:
                 model.load_state_dict(best_model_state)
-                logger.info(f"Loaded best model state from epoch {best_epoch}")
+                logger.info(f"Loaded best model state from epoch {best_val_acc_epoch}")
             else:
                 logger.warning(
                     "No best model state found. Training may not have improved."
