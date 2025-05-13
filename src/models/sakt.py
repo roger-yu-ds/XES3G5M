@@ -194,7 +194,7 @@ class SAKT(Module):
             ),
             other=position_ids,
         )
-        position_embedding = self.position_embedding(position_ids)[:, 1:, :]
+        position_embedding = self.position_embedding(position_ids)[:, :-1, :]
 
         # Combine embeddings
         x = interaction_embedding
